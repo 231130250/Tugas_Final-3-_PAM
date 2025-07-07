@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "961240146342",
+    "project_id": "app-pencatatan-keuangan",
+    "storage_bucket": "app-pencatatan-keuangan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:961240146342:android:e5803c25852a6fcdefaf67",
+        "android_client_info": {
+          "package_name": "com.example.wallet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCq4npx-YfbjCaiErD7F5gNUJzCBuQiPDA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
