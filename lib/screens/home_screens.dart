@@ -1,58 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:wallet/providers/waallet_providers.dart';
+import 'package:wallet/providers/transaksi_provider.dart';
 import 'package:wallet/widdgets/add_edit_transaction.dart';
 import 'package:wallet/widdgets/expenses_donut_chart.dart';
-// Widget baru untuk donut chart
+import 'package:wallet/widdgets/finance_chart.dart'; // (kalau mau ditambahkan)
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  // Helper untuk format Rupiah
   String _formatCurrency(double amount, {bool showSymbol = true}) {
     final format = NumberFormat.currency(
-        locale: 'id_ID', symbol: showSymbol ? 'Rp ' : '', decimalDigits: 0);
+      locale: 'id_ID',
+      symbol: showSymbol ? 'Rp ' : '',
+      decimalDigits: 0,
+    );
     return format.format(amount);
   }
 
   @override
   Widget build(BuildContext context) {
+    final transaksiProvider = context.watch<TransaksiProvider>();
+
     return DefaultTabController(
-      length: 2, // Kita buat 2 tab
+      length: 2,
       child: Scaffold(
-        backgroundColor: Colors.grey[100], // Background agar kartu terlihat
+        backgroundColor: Colors.grey[100],
         appBar: AppBar(
           backgroundColor: const Color.fromARGB(255, 26, 204, 124),
-          title: const Text('Wallet Dashboard', style: TextStyle(color: Colors.white)),
+          title: const Text(
+            'Wallet Dashboard',
+            style: TextStyle(color: Colors.white),
+          ),
           bottom: const TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.yellow,
-            tabs: [
-              Tab(text: 'DASHBOARD'),
-              Tab(text: 'RIWAYAT'),
-            ],
+            tabs: [Tab(text: 'DASHBOARD'), Tab(text: 'RIWAYAT')],
           ),
         ),
-        body: Consumer<WalletProvider>(
-          builder: (context, wallet, child) {
-            return TabBarView(
-              children: [
-                // Konten Tab 1: Dashboard
-                _buildDashboard(context, wallet),
-                // Konten Tab 2: Riwayat Transaksi
-                _buildTransactionList(context, wallet),
-              ],
-            );
-          },
-        ),
+        body:
+            transaksiProvider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                  children: [
+                    _buildDashboard(context),
+                    _buildTransactionList(context),
+                  ],
+                ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
             showModalBottomSheet(
               context: context,
               isScrollControlled: true,
-              builder: (_) => AddEditTransactionSheet(),
+              builder: (_) => const AddEditTransactionSheet(),
             );
           },
           child: const Icon(Icons.add),
@@ -62,28 +63,29 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // WIDGET UNTUK TAB DASHBOARD
-  Widget _buildDashboard(BuildContext context, WalletProvider wallet) {
-    if (wallet.transactions.isEmpty) {
+  Widget _buildDashboard(BuildContext context) {
+    final transaksi = context.watch<TransaksiProvider>();
+
+    if (transaksi.transactions.isEmpty) {
       return const Center(child: Text('Data masih kosong.'));
     }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Card untuk "Wallet Dashboard" (mirip panel kanan)
-          _buildBalanceCard(wallet),
+          _buildBalanceCard(transaksi),
           const SizedBox(height: 16),
-          // Card untuk "Expenses Structure" (mirip panel tengah)
-          ExpensesDonutChart(wallet: wallet), // Menggunakan widget baru
+          const ExpensesDonutChart(),
+          const SizedBox(height: 16),
+          const FinanceChart(), // jika ingin pakai bar chart pemasukan vs pengeluaran
         ],
       ),
     );
   }
 
-  // WIDGET UNTUK KARTU SALDO
-  Widget _buildBalanceCard(WalletProvider wallet) {
+  Widget _buildBalanceCard(TransaksiProvider transaksi) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -94,7 +96,11 @@ class HomeScreen extends StatelessWidget {
           children: [
             const Text(
               "Wallet Status",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -105,9 +111,17 @@ class HomeScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildGaugeItem("Saldo", wallet.balance, Colors.blue),
-                _buildGaugeItem("Pemasukan", wallet.totalIncome, Colors.green),
-                _buildGaugeItem("Pengeluaran", wallet.totalExpense, Colors.red),
+                _buildGaugeItem("Saldo", transaksi.balance, Colors.blue),
+                _buildGaugeItem(
+                  "Pemasukan",
+                  transaksi.totalIncome,
+                  Colors.green,
+                ),
+                _buildGaugeItem(
+                  "Pengeluaran",
+                  transaksi.totalExpense,
+                  Colors.red,
+                ),
               ],
             ),
           ],
@@ -115,8 +129,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
-  // WIDGET UNTUK ITEM DI KARTU SALDO (simulasi gauge)
+
   Widget _buildGaugeItem(String title, double value, Color color) {
     return Column(
       children: [
@@ -127,7 +140,7 @@ class HomeScreen extends StatelessWidget {
               width: 70,
               height: 70,
               child: CircularProgressIndicator(
-                value: 1.0, // simplified, just for looks
+                value: 1.0,
                 strokeWidth: 6,
                 backgroundColor: color.withOpacity(0.2),
                 valueColor: AlwaysStoppedAnimation<Color>(color),
@@ -143,34 +156,40 @@ class HomeScreen extends StatelessWidget {
         Text(
           _formatCurrency(value),
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        )
+        ),
       ],
     );
   }
 
-  // WIDGET UNTUK TAB RIWAYAT TRANSAKSI
-  Widget _buildTransactionList(BuildContext context, WalletProvider wallet) {
-    if (wallet.transactions.isEmpty) {
+  Widget _buildTransactionList(BuildContext context) {
+    final transaksi = context.watch<TransaksiProvider>();
+
+    if (transaksi.transactions.isEmpty) {
       return const Center(
-          child: Text('Belum ada transaksi.',
-              style: TextStyle(fontSize: 16, color: Colors.grey)));
+        child: Text(
+          'Belum ada transaksi.',
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
+      );
     }
+
     return ListView.builder(
       padding: const EdgeInsets.all(8),
-      itemCount: wallet.transactions.length,
+      itemCount: transaksi.transactions.length,
       itemBuilder: (context, index) {
-        final transaction = wallet.transactions[index];
-        bool isIncome = transaction is IncomeTransaction;
-        
-        // Data untuk tampilan
-        final iconData = isIncome ? Icons.account_balance_wallet : Icons.shopping_cart;
+        final transaction = transaksi.transactions[index];
+        final isIncome = transaction.type?.toLowerCase() == 'pemasukan';
+
+        final iconData =
+            isIncome ? Icons.account_balance_wallet : Icons.shopping_cart;
         final color = isIncome ? Colors.green : Colors.redAccent;
-        final title = transaction.description;
-        final subtitle = isIncome
-            // ignore: unnecessary_cast
-            ? 'Pemasukan dari ${(transaction as IncomeTransaction).source}'
-            : 'Pengeluaran untuk ${(transaction as ExpenseTransaction).category}';
-        final amountString = '${isIncome ? '+' : '-'} ${_formatCurrency(transaction.amount)}';
+        final title = transaction.description ?? '-';
+        final subtitle =
+            isIncome
+                ? 'Pemasukan dari ${transaction.category ?? 'Tidak diketahui'}'
+                : 'Pengeluaran untuk ${transaction.category ?? 'Tidak diketahui'}';
+        final amountString =
+            '${isIncome ? '+' : '-'} ${_formatCurrency(transaction.amount?.toDouble() ?? 0)}';
 
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -179,18 +198,27 @@ class HomeScreen extends StatelessWidget {
               backgroundColor: color.withOpacity(0.2),
               child: Icon(iconData, color: color),
             ),
-            title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[600])),
-            trailing: Text(amountString,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, color: color, fontSize: 15)),
-             onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => AddEditTransactionSheet(transaction: transaction),
-                );
-              },
+            trailing: Text(
+              amountString,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 15,
+              ),
+            ),
+            onTap: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder:
+                    (_) => AddEditTransactionSheet(transaction: transaction),
+              );
+            },
           ),
         );
       },

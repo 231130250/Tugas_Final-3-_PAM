@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:wallet/firebase_options.dart';
-import 'package:wallet/providers/waallet_providers.dart';
+import 'package:wallet/providers/transaksi_provider.dart';
 import 'package:wallet/screens/login_screen.dart';
 
 void main() async{
@@ -11,10 +11,16 @@ void main() async{
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Inisialisasi format lokal (untuk tanggal Indonesia)
   initializeDateFormatting('id_ID', null).then((_) {
-    runApp(const MyApp());
   });
+  runApp(MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (context) => TransaksiProvider()..fetchTransactions()),
+      // ChangeNotifierProvider(create: (context) => WalletProvider()),
+    ], child: const MyApp(),
+  ));
+  // Inisialisasi format lokal (untuk tanggal Indonesia)
+  
 }
 
 class MyApp extends StatelessWidget {
@@ -23,9 +29,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Menggunakan ChangeNotifierProvider untuk state management
-    return ChangeNotifierProvider(
-      create: (context) => WalletProvider(),
-      child: MaterialApp(
+    return MaterialApp(
         title: 'Aplikasi Wallet',
         theme: ThemeData(
           primarySwatch: Colors.green,
@@ -40,7 +44,7 @@ class MyApp extends StatelessWidget {
         // Mulai aplikasi dari LoginScreen
         home: const LoginScreen(),
         debugShowCheckedModeBanner: false,
-      ),
+      
     );
   }
 }

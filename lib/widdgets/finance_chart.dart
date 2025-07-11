@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:wallet/providers/waallet_providers.dart';
-
+import 'package:provider/provider.dart';
+import 'package:wallet/providers/transaksi_provider.dart';
 
 class FinanceChart extends StatelessWidget {
-  final WalletProvider wallet;
-  const FinanceChart({super.key, required this.wallet});
+  const FinanceChart({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final transaksiProvider = context.watch<TransaksiProvider>();
+
+    final double income = transaksiProvider.totalIncome;
+    final double expense = transaksiProvider.totalExpense;
+    final double maxY = (income > expense ? income : expense) * 1.2;
+
     return SizedBox(
       height: 200,
       child: Card(
@@ -19,19 +24,24 @@ class FinanceChart extends StatelessWidget {
           child: BarChart(
             BarChartData(
               alignment: BarChartAlignment.spaceAround,
-              maxY: (wallet.totalIncome > wallet.totalExpense ? wallet.totalIncome : wallet.totalExpense) * 1.2,
+              maxY: maxY == 0 ? 100 : maxY, // jika belum ada data, beri max default
               barTouchData: BarTouchData(enabled: true),
               titlesData: FlTitlesData(
                 show: true,
-                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: _bottomTitles)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: _bottomTitles,
+                  ),
+                ),
                 leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
               barGroups: [
-                _makeBarData(0, wallet.totalIncome, Colors.green),
-                _makeBarData(1, wallet.totalExpense, Colors.red),
+                _makeBarData(0, income, Colors.green),
+                _makeBarData(1, expense, Colors.red),
               ],
             ),
           ),
@@ -67,6 +77,9 @@ class FinanceChart extends StatelessWidget {
         text = '';
         break;
     }
-    return SideTitleWidget(axisSide: meta.axisSide, child: Text(text));
+    return SideTitleWidget(
+      axisSide: meta.axisSide,
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+    );
   }
 }

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:wallet/providers/waallet_providers.dart';
+import 'package:provider/provider.dart';
+import 'package:wallet/providers/transaksi_provider.dart';
 
 class ExpensesDonutChart extends StatelessWidget {
-  final WalletProvider wallet;
-  const ExpensesDonutChart({super.key, required this.wallet});
+  const ExpensesDonutChart({super.key});
 
-  // Helper untuk format Rupiah
   String _formatCurrency(double amount, {bool showSymbol = true}) {
     final format = NumberFormat.currency(
         locale: 'id_ID', symbol: showSymbol ? 'Rp ' : '', decimalDigits: 0);
@@ -16,21 +15,32 @@ class ExpensesDonutChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final expenseData = wallet.expenseByCategory;
-    if (expenseData.isEmpty) {
-      return const SizedBox.shrink(); // Jangan tampilkan jika tidak ada pengeluaran
+    final transaksiProvider = context.watch<TransaksiProvider>();
+    final expenseData = transaksiProvider.expenseByCategory;
+    final totalExpense = transaksiProvider.totalExpense;
+
+    if (expenseData.isEmpty || totalExpense == 0) {
+      return const SizedBox.shrink(); // Sembunyikan jika tidak ada data
     }
-    
-    // Siapkan data untuk chart
+
     int colorIndex = 0;
-    final List<Color> chartColors = [Colors.blue, Colors.orange, Colors.purple, Colors.teal, Colors.pink];
+    final List<Color> chartColors = [
+      Colors.blue,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.pink,
+      Colors.brown,
+      Colors.indigo,
+    ];
+
     final chartSections = expenseData.entries.map((entry) {
       final color = chartColors[colorIndex % chartColors.length];
       colorIndex++;
       return PieChartSectionData(
         color: color,
         value: entry.value,
-        title: '${(entry.value / wallet.totalExpense * 100).toStringAsFixed(0)}%',
+        title: '${(entry.value / totalExpense * 100).toStringAsFixed(0)}%',
         radius: 60,
         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
       );
@@ -44,7 +54,7 @@ class ExpensesDonutChart extends StatelessWidget {
         child: Column(
           children: [
             const Text(
-              "Expenses Structure",
+              "Struktur Pengeluaran",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 28),
@@ -56,31 +66,30 @@ class ExpensesDonutChart extends StatelessWidget {
                   PieChart(
                     PieChartData(
                       sections: chartSections,
-                      centerSpaceRadius: 70, // Ini yang membuatnya menjadi Donut Chart
+                      centerSpaceRadius: 70,
                       sectionsSpace: 2,
                     ),
                   ),
                   Column(
-                     mainAxisAlignment: MainAxisAlignment.center,
-                     children: [
-                       Text("Total", style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-                       Text(
-                         _formatCurrency(wallet.totalExpense),
-                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                       ),
-                     ],
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("Total", style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+                      Text(
+                        _formatCurrency(totalExpense),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   )
                 ],
               ),
             ),
             const Divider(height: 24),
-            // Legenda Chart
-             Wrap(
+            Wrap(
               spacing: 16.0,
               runSpacing: 8.0,
               children: expenseData.keys.map((category) {
-                 final color = chartColors[expenseData.keys.toList().indexOf(category) % chartColors.length];
-                 return _buildLegend(color, category);
+                final color = chartColors[expenseData.keys.toList().indexOf(category) % chartColors.length];
+                return _buildLegend(color, category);
               }).toList(),
             )
           ],
