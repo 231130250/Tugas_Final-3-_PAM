@@ -1,13 +1,47 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:wallet/providers/shared_preference.dart';
 import 'package:wallet/providers/transaksi_provider.dart';
 import 'package:wallet/widdgets/add_edit_transaction.dart';
 import 'package:wallet/widdgets/expenses_donut_chart.dart';
-import 'package:wallet/widdgets/finance_chart.dart'; // (kalau mau ditambahkan)
+import 'package:wallet/widdgets/finance_chart.dart';
+import 'package:wallet/screens/login_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String? username;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final data = await SharedPrefService.getUser();
+    if (data != null) {
+      setState(() {
+        username = data['username'];
+      });
+    }
+  }
+
+  void _logout() async {
+    await SharedPrefService.clear();
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+  }
 
   String _formatCurrency(double amount, {bool showSymbol = true}) {
     final format = NumberFormat.currency(
@@ -28,10 +62,27 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: Colors.grey[100],
         appBar: AppBar(
           backgroundColor: const Color.fromARGB(255, 26, 204, 124),
-          title: const Text(
-            'Wallet Dashboard',
-            style: TextStyle(color: Colors.white),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Wallet Dashboard',
+                style: TextStyle(color: Colors.white),
+              ),
+              if (username != null)
+                Text(
+                  'Halo, $username',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+            ],
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              tooltip: 'Keluar',
+              onPressed: _logout,
+            ),
+          ],
           bottom: const TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
@@ -79,7 +130,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 16),
           const ExpensesDonutChart(),
           const SizedBox(height: 16),
-          const FinanceChart(), // jika ingin pakai bar chart pemasukan vs pengeluaran
+          const FinanceChart(),
         ],
       ),
     );

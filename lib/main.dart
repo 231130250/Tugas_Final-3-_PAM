@@ -3,48 +3,53 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:wallet/firebase_options.dart';
+import 'package:wallet/providers/shared_preference.dart';
 import 'package:wallet/providers/transaksi_provider.dart';
+import 'package:wallet/screens/home_screens.dart';
 import 'package:wallet/screens/login_screen.dart';
+import 'package:wallet/screens/register_screen.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await initializeDateFormatting('id_ID', null);
+
+  // Cek apakah user sudah login sebelumnya
+  final userData = await SharedPrefService.getUser();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => TransaksiProvider()..fetchTransactions(),
+        ),
+      ],
+      child: MyApp(isLoggedIn: userData != null),
+    ),
   );
-  initializeDateFormatting('id_ID', null).then((_) {
-  });
-  runApp(MultiProvider(
-    providers: [
-      ChangeNotifierProvider(create: (context) => TransaksiProvider()..fetchTransactions()),
-      // ChangeNotifierProvider(create: (context) => WalletProvider()),
-    ], child: const MyApp(),
-  ));
-  // Inisialisasi format lokal (untuk tanggal Indonesia)
-  
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
-    // Menggunakan ChangeNotifierProvider untuk state management
     return MaterialApp(
-        title: 'Aplikasi Wallet',
-        theme: ThemeData(
-          primarySwatch: Colors.green,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-          // Menambahkan tema agar tombol di keypad tidak memiliki highlight
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              splashFactory: NoSplash.splashFactory,
-            ),
-          ),
+      title: 'Aplikasi Wallet',
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(splashFactory: NoSplash.splashFactory),
         ),
-        // Mulai aplikasi dari LoginScreen
-        home: const LoginScreen(),
-        debugShowCheckedModeBanner: false,
-      
+      ),
+      debugShowCheckedModeBanner: false,
+      home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
+      routes: {
+        '/register': (_) => const RegisterScreen(), // ✅ ini penting
+      },
     );
   }
 }
