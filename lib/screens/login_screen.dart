@@ -1,5 +1,8 @@
+// Salin dan ganti seluruh isi file lib/screens/login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wallet/model/user_model.dart';
 import 'package:wallet/providers/auth_service.dart';
 import 'package:wallet/providers/shared_preference.dart';
 import 'package:wallet/providers/transaksi_provider.dart';
@@ -29,24 +32,30 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = await authService.loginUser(
+      // Langkah 1: Login dan dapatkan data user
+      final AppUser? user = await authService.loginUser(
         emailController.text.trim(),
         pinController.text.trim(),
       );
 
       if (user != null && mounted) {
+        // Langkah 2: Simpan data ke SharedPreferences untuk sesi berikutnya
         await SharedPrefService.saveUser(
           id: user.id,
           email: user.email,
           username: user.username,
         );
 
-        // Panggil fetchTransactions SETELAH login berhasil
         await Provider.of<TransaksiProvider>(context, listen: false).fetchTransactions();
 
+        // Langkah 3 (PENTING): Navigasi ke HomeScreen dan KIRIM objek user
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(
+              user: user, // Mengirim data user secara langsung
+            ),
+          ),
         );
       }
     } catch (e) {
@@ -62,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // UI tidak berubah, jadi kita biarkan saja
     return Scaffold(
       backgroundColor: Colors.green.shade50,
       body: Center(
@@ -111,10 +121,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white
-                  ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white),
                   child: _isLoading
                       ? const SizedBox(
                           width: 20,

@@ -1,3 +1,5 @@
+// Salin dan ganti seluruh isi file lib/providers/auth_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wallet/model/user_model.dart';
@@ -12,8 +14,8 @@ class AuthService {
     required String pin,
   }) async {
     try {
-
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(
         email: email,
         password: pin,
       );
@@ -43,6 +45,10 @@ class AuthService {
       final doc = await _db.collection('users').doc(userUid).get();
 
       if (doc.exists) {
+        // --- DIAGNOSTIK 1: Memeriksa data dari Firestore ---
+        print('--- DATA DARI FIRESTORE ---');
+        print(doc.data());
+        // ----------------------------------------------------
         return AppUser.fromMap(doc.id, doc.data()!);
       }
       return null;
