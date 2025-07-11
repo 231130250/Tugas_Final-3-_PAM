@@ -38,8 +38,17 @@ class TransaksiProvider extends ChangeNotifier {
 
   Future<void> fetchTransactions() async {
     final user = _auth.currentUser;
-    if (user == null) return;
 
+    print("--- MEMULAI FETCH TRANSACTIONS ---");
+    if (user == null) {
+      print("GAGAL: Pengguna tidak ditemukan (user is null). Proses fetch dihentikan.");
+      _transactions = [];
+      notifyListeners();
+      return;
+    }
+    print("INFO: Fetching data untuk user ID: ${user.uid}");
+
+    setLoading(true);
     try {
       final snapshot = await _db
           .collection('transaksi')
@@ -47,19 +56,37 @@ class TransaksiProvider extends ChangeNotifier {
           .orderBy('timestamp', descending: true)
           .get();
 
-      _transactions = snapshot.docs
-          .map((doc) => TransaksiModel.fromJson(doc.data()))
-          .toList();
+      print("INFO: Query berhasil. Ditemukan ${snapshot.docs.length} dokumen.");
 
-      notifyListeners();
+      if (snapshot.docs.isEmpty) {
+        _transactions = [];
+      } else {
+        List<TransaksiModel> newTransactions = [];
+        for (var doc in snapshot.docs) {
+          try {
+            print("Mencoba memproses dokumen: ${doc.id}");
+            newTransactions.add(TransaksiModel.fromJson(doc.data()));
+          } catch (e) {
+            print("!!! ERROR PARSING DOKUMEN ${doc.id}: $e");
+            print("DATA MENTAH DOKUMEN: ${doc.data()}");
+          }
+        }
+        _transactions = newTransactions;
+      }
+      print("INFO: Proses selesai. Total transaksi di provider: ${_transactions.length}");
     } catch (e) {
-      print('Gagal ambil transaksi: $e');
+      print("!!! ERROR UTAMA SAAT FETCHING: $e");
+    } finally {
+      setLoading(false);
     }
   }
 
   Future<void> addTransaction(TransaksiModel transaksi) async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      print("Error: Current user is null. Aborting transaction.");
+      return;
+    }
 
     final docRef = _db.collection('transaksi').doc();
     transaksi.idUser = user.uid;
@@ -68,31 +95,25 @@ class TransaksiProvider extends ChangeNotifier {
 
     try {
       await docRef.set(transaksi.toJson());
-      _transactions.insert(0, transaksi); // Tambah langsung ke UI
-      notifyListeners();
+      await fetchTransactions();
     } catch (e) {
-      print('Gagal tambah transaksi: $e');
+      print('EXCEPTION during addTransaction: $e');
+      throw e;
     }
   }
-
+  
+  // Fungsi update dan delete tidak perlu diubah
   Future<void> updateTransaction(String idTransaksi, {
     required double newAmount,
     required String newDesc,
   }) async {
     try {
       await _db.collection('transaksi').doc(idTransaksi).update({
-        'amount': newAmount,
+        'amount': newAmount.toInt(),
         'description': newDesc,
         'timestamp': DateTime.now().toIso8601String(),
       });
-
-      final index = _transactions.indexWhere((t) => t.idTransaksi == idTransaksi);
-      if (index != -1) {
-        _transactions[index].amount = newAmount.toInt();
-        _transactions[index].description = newDesc;
-        _transactions[index].timestamp = DateTime.now().toIso8601String();
-        notifyListeners();
-      }
+      await fetchTransactions();
     } catch (e) {
       print('Gagal update transaksi: $e');
     }
@@ -105,26 +126,6 @@ class TransaksiProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Gagal hapus transaksi: $e');
-    }
-  }
-
-  Future<List<TransaksiModel>> filterByTypeAndCategory({
-    String? type,
-    String? category,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) return [];
-
-    try {
-      Query query = _db.collection('transaksi').where('id_user', isEqualTo: user.uid);
-      if (type != null) query = query.where('type', isEqualTo: type);
-      if (category != null) query = query.where('category', isEqualTo: category);
-
-      final snapshot = await query.get();
-      return snapshot.docs.map((doc) => TransaksiModel.fromJson(doc.data() as Map<String, dynamic>)).toList();
-    } catch (e) {
-      print("Gagal filter: $e");
-      return [];
     }
   }
 }

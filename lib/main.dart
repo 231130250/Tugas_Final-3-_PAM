@@ -1,38 +1,35 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:provider/provider.dart';
 import 'package:wallet/firebase_options.dart';
-import 'package:wallet/providers/shared_preference.dart';
+import 'package:wallet/providers/auth_gate.dart';
 import 'package:wallet/providers/transaksi_provider.dart';
-import 'package:wallet/screens/home_screens.dart';
-import 'package:wallet/screens/login_screen.dart';
 import 'package:wallet/screens/register_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  
   await initializeDateFormatting('id_ID', null);
-
-  // Cek apakah user sudah login sebelumnya
-  final userData = await SharedPrefService.getUser();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (context) => TransaksiProvider()..fetchTransactions(),
+          create: (context) => TransaksiProvider(),
         ),
       ],
-      child: MyApp(isLoggedIn: userData != null),
+      child: const MyApp(),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  final bool isLoggedIn;
-
-  const MyApp({super.key, required this.isLoggedIn});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -46,9 +43,9 @@ class MyApp extends StatelessWidget {
         ),
       ),
       debugShowCheckedModeBanner: false,
-      home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
+      home: const AuthGate(),
       routes: {
-        '/register': (_) => const RegisterScreen(), // ✅ ini penting
+        '/register': (_) => const RegisterScreen(),
       },
     );
   }

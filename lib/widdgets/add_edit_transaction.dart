@@ -18,6 +18,7 @@ class _AddEditTransactionSheetState extends State<AddEditTransactionSheet> {
   late TextEditingController _amountController;
   late TextEditingController _descController;
   late TextEditingController _categoryController;
+  bool _isLoading = false;
 
   bool _isIncome = true;
 
@@ -26,7 +27,7 @@ class _AddEditTransactionSheetState extends State<AddEditTransactionSheet> {
     super.initState();
     final t = widget.transaction;
 
-    _isIncome = t?.type?.toLowerCase() == 'pemasukan';
+    _isIncome = t?.type?.toLowerCase() == 'pemasukan' || t == null;
 
     _amountController = TextEditingController(
       text: t?.amount?.toString() ?? '',
@@ -46,6 +47,8 @@ class _AddEditTransactionSheetState extends State<AddEditTransactionSheet> {
   Future<void> _submitData() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _isLoading = true);
+
     final transaksiProvider = Provider.of<TransaksiProvider>(
       context,
       listen: false,
@@ -57,26 +60,17 @@ class _AddEditTransactionSheetState extends State<AddEditTransactionSheet> {
     final type = _isIncome ? 'pemasukan' : 'pengeluaran';
 
     try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      );
-
       if (widget.transaction == null) {
         // Tambah transaksi baru
         final newTransaksi = TransaksiModel(
-          idTransaksi: '',
-          idUser: '',
           amount: amount.toInt(),
           description: desc,
           category: category,
           type: type,
-          timestamp: DateTime.now().toIso8601String(),
         );
         await transaksiProvider.addTransaction(newTransaksi);
       } else {
-        // Edit transaksi yang sudah ada (sederhana, hanya amount & desc)
+        // Edit transaksi yang sudah ada
         await transaksiProvider.updateTransaction(
           widget.transaction!.idTransaksi!,
           newAmount: amount,
@@ -84,11 +78,18 @@ class _AddEditTransactionSheetState extends State<AddEditTransactionSheet> {
         );
       }
 
-      Navigator.of(context).pop(); // Tutup modal setelah sukses
+      if(mounted) Navigator.of(context).pop(); // Tutup modal setelah sukses
+
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Terjadi kesalahan: ${e.toString()}")),
-      );
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Terjadi kesalahan: ${e.toString()}")),
+        );
+      }
+    } finally {
+      if(mounted){
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -145,14 +146,14 @@ class _AddEditTransactionSheetState extends State<AddEditTransactionSheet> {
                   prefixText: 'Rp ',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+                  decimal: false,
                 ),
                 validator:
                     (value) =>
                         (value == null ||
                                 value.isEmpty ||
-                                double.tryParse(value) == null ||
-                                double.parse(value) <= 0)
+                                int.tryParse(value) == null ||
+                                int.parse(value) <= 0)
                             ? 'Masukkan jumlah yang valid'
                             : null,
               ),
@@ -178,9 +179,14 @@ class _AddEditTransactionSheetState extends State<AddEditTransactionSheet> {
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
-                onPressed: _submitData,
-                icon: const Icon(Icons.save),
-                label: Text(widget.transaction == null ? 'Simpan' : 'Perbarui'),
+                onPressed: _isLoading ? null : _submitData,
+                icon: _isLoading ? Container() : const Icon(Icons.save),
+                label: _isLoading 
+                ? const SizedBox(
+                  width: 20, 
+                  height: 20, 
+                  child: CircularProgressIndicator(strokeWidth: 2,)) 
+                : Text(widget.transaction == null ? 'Simpan' : 'Perbarui'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),

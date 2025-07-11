@@ -1,12 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:wallet/providers/auth_service.dart';
 import 'package:wallet/providers/shared_preference.dart';
 import 'package:wallet/providers/transaksi_provider.dart';
 import 'package:wallet/widdgets/add_edit_transaction.dart';
 import 'package:wallet/widdgets/expenses_donut_chart.dart';
 import 'package:wallet/widdgets/finance_chart.dart';
-import 'package:wallet/screens/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,12 +22,24 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadData();
+  }
+
+  void _loadData() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    print("--- HOME_SCREEN LOAD DATA ---");
+    print("Current User saat di HomeScreen: ${currentUser?.email}");
+    print("---------------------------");
+
+    Future.microtask(() {
+      Provider.of<TransaksiProvider>(context, listen: false).fetchTransactions();
+    });
     _loadUser();
   }
 
   Future<void> _loadUser() async {
     final data = await SharedPrefService.getUser();
-    if (data != null) {
+    if (mounted && data != null) {
       setState(() {
         username = data['username'];
       });
@@ -34,15 +47,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _logout() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    await authService.logout();
     await SharedPrefService.clear();
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
+    // AuthGate akan secara otomatis menangani navigasi ke halaman login
   }
-
+  
+  // Sisa kode di HomeScreen sama seperti sebelumnya...
   String _formatCurrency(double amount, {bool showSymbol = true}) {
     final format = NumberFormat.currency(
       locale: 'id_ID',
@@ -72,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (username != null)
                 Text(
                   'Halo, $username',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  style: const TextStyle(color: Colors.white70, fontSize: 15),
                 ),
             ],
           ),
@@ -80,7 +91,10 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton(
               icon: const Icon(Icons.logout, color: Colors.white),
               tooltip: 'Keluar',
-              onPressed: _logout,
+              onPressed: () async {
+                 await AuthService().logout();
+                 await SharedPrefService.clear();
+              }
             ),
           ],
           bottom: const TabBar(
@@ -94,11 +108,11 @@ class _HomeScreenState extends State<HomeScreen> {
             transaksiProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : TabBarView(
-                  children: [
-                    _buildDashboard(context),
-                    _buildTransactionList(context),
-                  ],
-                ),
+                    children: [
+                      _buildDashboard(context),
+                      _buildTransactionList(context),
+                    ],
+                  ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
             showModalBottomSheet(

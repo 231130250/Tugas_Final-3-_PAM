@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:wallet/providers/auth_service.dart';
 import 'package:wallet/providers/shared_preference.dart';
+import 'package:wallet/providers/transaksi_provider.dart';
 import 'package:wallet/screens/home_screens.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,28 +16,47 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final pinController = TextEditingController();
   final authService = AuthService();
+  bool _isLoading = false;
 
   void _login() async {
-    final user = await authService.loginUser(
-      emailController.text.trim(),
-      pinController.text.trim(),
-    );
-
-    if (user != null) {
-      await SharedPrefService.saveUser(
-        id: user.id,
-        email: user.email,
-        username: user.username,
-      );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else {
+    if (emailController.text.isEmpty || pinController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Login gagal: email atau pin salah")),
+        const SnackBar(content: Text("Email dan PIN tidak boleh kosong")),
       );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final user = await authService.loginUser(
+        emailController.text.trim(),
+        pinController.text.trim(),
+      );
+
+      if (user != null && mounted) {
+        await SharedPrefService.saveUser(
+          id: user.id,
+          email: user.email,
+          username: user.username,
+        );
+
+        // Panggil fetchTransactions SETELAH login berhasil
+        await Provider.of<TransaksiProvider>(context, listen: false).fetchTransactions();
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Login gagal: email atau PIN salah")),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -71,6 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelText: "Email",
                   border: OutlineInputBorder(),
                 ),
+                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
@@ -81,17 +103,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelText: "PIN",
                   border: OutlineInputBorder(),
                 ),
+                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _login,
+                  onPressed: _isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     backgroundColor: Colors.green,
+                    foregroundColor: Colors.white
                   ),
-                  child: const Text("Login", style: TextStyle(fontSize: 16)),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                      : const Text("Login", style: TextStyle(fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 12),
